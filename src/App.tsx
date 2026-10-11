@@ -71,6 +71,8 @@ const QuotexPlatform: React.FC = () => {
             }}
             onOpenChartSettings={() => setChartSettingsOpen(true)}
             onOpenActiveTrades={() => setActiveTradesOpen(true)}
+            onOpenProfile={() => setProfileOpen(true)}
+            onOpenSupport={() => setSupportMessagesOpen(true)}
           />
 
           {/* 2. Main Live Chart Area with DEMO watermark, vertical trade lines, countdown pill, floating buttons & candle-anchored RESULT (P/L) */}

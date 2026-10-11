@@ -14,7 +14,8 @@ import {
   MarketBehaviorMode,
   DrawnLine,
   DrawingToolType,
-  OrderToast
+  OrderToast,
+  WatermarkType
 } from '../types/trading';
 import { INITIAL_ASSETS, generateHistoricalCandles } from '../constants/assets';
 import { sounds } from '../utils/audio';
@@ -61,6 +62,8 @@ interface TradingContextType {
   // UI & Visibility Toggles
   showChartButtons: boolean;
   setShowChartButtons: (show: boolean) => void;
+  showHeaderExtraButtons: boolean;
+  setShowHeaderExtraButtons: (show: boolean) => void;
   showOrderToastEnabled: boolean;
   setShowOrderToastEnabled: (enabled: boolean) => void;
 
@@ -117,6 +120,21 @@ interface TradingContextType {
   setLogoImageUrl: (url: string) => void;
   backgroundImageUrl: string;
   setBackgroundImageUrl: (url: string) => void;
+
+  // Watermark Settings (Adjustable size & opacity as requested)
+  watermarkSize: number;
+  setWatermarkSize: (size: number) => void;
+  watermarkOpacity: number;
+  setWatermarkOpacity: (opacity: number) => void;
+  watermarkType: WatermarkType;
+  setWatermarkType: (type: WatermarkType) => void;
+
+  // 100+ Live Technical Indicators (Only Lines)
+  activeIndicatorIds: string[];
+  setActiveIndicatorIds: React.Dispatch<React.SetStateAction<string[]>>;
+  toggleIndicator: (id: string) => void;
+  setIndicatorActive: (id: string, active: boolean) => void;
+  clearAllActiveIndicators: () => void;
 }
 
 const TradingContext = createContext<TradingContextType | undefined>(undefined);
@@ -133,6 +151,7 @@ const STORAGE_KEYS = {
   SOUND_ENABLED: 'quotex_sound_enabled',
   DRAWN_LINES: 'quotex_drawn_lines',
   SHOW_CHART_BUTTONS: 'quotex_show_chart_buttons',
+  SHOW_HEADER_EXTRA_BUTTONS: 'quotex_show_header_extra_buttons',
   SHOW_ORDER_TOAST: 'quotex_show_order_toast',
   TRADER_NAME: 'quotex_trader_name',
   TRADER_FLAG: 'quotex_trader_flag',
@@ -141,6 +160,10 @@ const STORAGE_KEYS = {
   CANDLE_COLOR_SCHEME: 'quotex_candle_color_scheme',
   LOGO_IMAGE_URL: 'quotex_logo_image_url',
   BACKGROUND_IMAGE_URL: 'quotex_background_image_url',
+  WATERMARK_SIZE: 'quotex_watermark_size',
+  WATERMARK_OPACITY: 'quotex_watermark_opacity',
+  WATERMARK_TYPE: 'quotex_watermark_type',
+  ACTIVE_INDICATOR_IDS: 'quotex_active_indicator_ids',
 };
 
 export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -169,6 +192,68 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } else {
       localStorage.removeItem(STORAGE_KEYS.BACKGROUND_IMAGE_URL);
     }
+  }, []);
+
+  // Watermark Settings (Adjustable size & opacity, no background image clutter)
+  const [watermarkSize, setWatermarkSizeState] = useState<number>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.WATERMARK_SIZE);
+    return saved ? parseInt(saved, 10) : 160;
+  });
+
+  const setWatermarkSize = useCallback((size: number) => {
+    setWatermarkSizeState(size);
+    localStorage.setItem(STORAGE_KEYS.WATERMARK_SIZE, size.toString());
+  }, []);
+
+  const [watermarkOpacity, setWatermarkOpacityState] = useState<number>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.WATERMARK_OPACITY);
+    return saved ? parseFloat(saved) : 0.14;
+  });
+
+  const setWatermarkOpacity = useCallback((opacity: number) => {
+    setWatermarkOpacityState(opacity);
+    localStorage.setItem(STORAGE_KEYS.WATERMARK_OPACITY, opacity.toString());
+  }, []);
+
+  const [watermarkType, setWatermarkTypeState] = useState<WatermarkType>(() => {
+    return (localStorage.getItem(STORAGE_KEYS.WATERMARK_TYPE) as WatermarkType) || 'both';
+  });
+
+  const setWatermarkType = useCallback((type: WatermarkType) => {
+    setWatermarkTypeState(type);
+    localStorage.setItem(STORAGE_KEYS.WATERMARK_TYPE, type);
+  }, []);
+
+  // 100+ Indicators (Only Lines)
+  const [activeIndicatorIds, setActiveIndicatorIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_INDICATOR_IDS);
+      return saved ? JSON.parse(saved) : ['sma_10', 'ema_20'];
+    } catch {
+      return ['sma_10', 'ema_20'];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_INDICATOR_IDS, JSON.stringify(activeIndicatorIds));
+  }, [activeIndicatorIds]);
+
+  const toggleIndicator = useCallback((id: string) => {
+    setActiveIndicatorIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  }, []);
+
+  const setIndicatorActive = useCallback((id: string, active: boolean) => {
+    setActiveIndicatorIds((prev) => {
+      if (active && !prev.includes(id)) return [...prev, id];
+      if (!active && prev.includes(id)) return prev.filter((i) => i !== id);
+      return prev;
+    });
+  }, []);
+
+  const clearAllActiveIndicators = useCallback(() => {
+    setActiveIndicatorIds([]);
   }, []);
   // 1. Account balances (Live starts at $0.00 with money removed as requested, customizable anytime)
   const [accountType, setAccountTypeState] = useState<AccountType>(() => {
@@ -243,6 +328,17 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const setShowChartButtons = useCallback((show: boolean) => {
     setShowChartButtonsState(show);
     localStorage.setItem(STORAGE_KEYS.SHOW_CHART_BUTTONS, String(show));
+  }, []);
+
+  // Top bar extra buttons: Briefcase/Bag (Active Trades) & 3-Dots (Settings/Menu) toggle
+  const [showHeaderExtraButtons, setShowHeaderExtraButtonsState] = useState<boolean>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.SHOW_HEADER_EXTRA_BUTTONS);
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  const setShowHeaderExtraButtons = useCallback((show: boolean) => {
+    setShowHeaderExtraButtonsState(show);
+    localStorage.setItem(STORAGE_KEYS.SHOW_HEADER_EXTRA_BUTTONS, String(show));
   }, []);
 
   // Notification when placing trade OFF by default ("jab hum trade lagaya ju notification show horaha ha wo off ho")
@@ -423,15 +519,17 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.removeItem(STORAGE_KEYS.DRAWN_LINES);
   }, []);
 
-  // Zoom Controls
+  // Zoom Controls ("fix candle ko hum fully zoom kara ok fix")
   const [zoomVisibleCount, setZoomVisibleCount] = useState<number>(42);
 
   const zoomIn = useCallback(() => {
-    setZoomVisibleCount((prev) => Math.max(14, prev - 6));
+    // Allows full zoom-in down to 5 candles so candles appear huge & clear
+    setZoomVisibleCount((prev) => Math.max(5, prev - 4));
   }, []);
 
   const zoomOut = useCallback(() => {
-    setZoomVisibleCount((prev) => Math.min(120, prev + 6));
+    // Allows zoom-out up to 160 candles for broad view
+    setZoomVisibleCount((prev) => Math.min(160, prev + 5));
   }, []);
 
   const resetZoom = useCallback(() => {
@@ -1058,6 +1156,8 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setDrawingColor,
         showChartButtons,
         setShowChartButtons,
+        showHeaderExtraButtons,
+        setShowHeaderExtraButtons,
         showOrderToastEnabled,
         setShowOrderToastEnabled,
         traderName,
@@ -1085,7 +1185,18 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         logoImageUrl,
         setLogoImageUrl,
         backgroundImageUrl,
-        setBackgroundImageUrl
+        setBackgroundImageUrl,
+        watermarkSize,
+        setWatermarkSize,
+        watermarkOpacity,
+        setWatermarkOpacity,
+        watermarkType,
+        setWatermarkType,
+        activeIndicatorIds,
+        setActiveIndicatorIds,
+        toggleIndicator,
+        setIndicatorActive,
+        clearAllActiveIndicators
       }}
     >
       {children}

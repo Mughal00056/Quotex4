@@ -154,6 +154,29 @@ export interface IndicatorSettings {
   parabolicSar: boolean;
 }
 
+export type IndicatorCategory = 
+  | 'ALL'
+  | 'TREND' 
+  | 'VOLATILITY' 
+  | 'CHANNELS' 
+  | 'OSCILLATORS' 
+  | 'PIVOTS' 
+  | 'VOLUME'
+  | 'DRAWING';
+
+export interface IndicatorDefinition {
+  id: string;
+  name: string;
+  shortName: string;
+  category: IndicatorCategory;
+  color: string;
+  defaultPeriod?: number;
+  description: string;
+  calculate: (candles: Candle[]) => (number | null)[];
+}
+
+export type WatermarkType = 'both' | 'logo' | 'text';
+
 export type DrawingToolType = 
   | 'none' 
   | 'horizontal' 

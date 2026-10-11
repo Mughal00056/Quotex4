@@ -16,7 +16,7 @@ export const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
-  const categories = ['ALL', 'Forex OTC', 'Crypto', 'Commodities', 'Stocks OTC'];
+  const categories = ['ALL', 'Forex OTC', 'Crypto', 'Commodities', 'Stocks OTC', 'Indices'];
 
   const filteredAssets = assets.filter((asset) => {
     const matchesSearch =
@@ -38,7 +38,7 @@ export const AssetModal: React.FC<AssetModalProps> = ({ isOpen, onClose }) => {
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-[#1f2a3d] bg-[#141b29]">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            Asset Market Selector
+            Asset Market Selector ({assets.length}+)
             <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30">
               UP TO 94% PAYOUT
             </span>

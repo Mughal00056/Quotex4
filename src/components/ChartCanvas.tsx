@@ -11,6 +11,7 @@ import {
   formatPrice
 } from '../utils/chartMath';
 import { Candle, CANDLE_COLOR_SCHEMES } from '../types/trading';
+import { ALL_INDICATORS } from '../constants/indicators';
 import {
   MoreHorizontal,
   Briefcase,
@@ -73,8 +74,12 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
     setShowChartButtons,
     lastClosedTrade,
     clearLastClosedTrade,
+    logoImageUrl,
     backgroundImageUrl,
-    logoImageUrl
+    watermarkSize,
+    watermarkOpacity,
+    watermarkType,
+    activeIndicatorIds
   } = useTrading();
 
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
@@ -404,30 +409,38 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
       return liveCandleX + idxFloat * candleWidth;
     };
 
-    // 1. Sleek Background Watermark Logo & LIVE/DEMO text ("aur logo na candle background ma nazar nahi araha fix")
+    // 1. Sleek Background Watermark Logo & LIVE/DEMO text with user-adjustable size & opacity
     ctx.save();
+    const effectiveLogoSize = Math.min(chartWidth * 0.75, chartHeight * 0.75, watermarkSize || 160);
+    const effectiveOpacity = Math.max(0.02, Math.min(0.6, watermarkOpacity || 0.14));
+    const showLogo = watermarkType === 'both' || watermarkType === 'logo';
+    const showText = watermarkType === 'both' || watermarkType === 'text';
+
     const logoImg = logoImgRef.current;
-    if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
-      ctx.globalAlpha = 0.14; // Clearly visible watermark
-      const logoSize = Math.min(chartWidth * 0.45, chartHeight * 0.45, 170);
+    if (showLogo && logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+      ctx.globalAlpha = effectiveOpacity;
       ctx.drawImage(
         logoImg,
-        chartWidth * 0.5 - logoSize / 2,
-        topPadding + chartHeight * 0.42 - logoSize / 2 - 10,
-        logoSize,
-        logoSize
+        chartWidth * 0.5 - effectiveLogoSize / 2,
+        topPadding + chartHeight * 0.42 - effectiveLogoSize / 2 - (showText ? 15 : 0),
+        effectiveLogoSize,
+        effectiveLogoSize
       );
     }
-    ctx.globalAlpha = 0.06;
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '900 78px "Plus Jakarta Sans", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(
-      accountType === 'REAL' ? 'LIVE' : 'DEMO',
-      chartWidth * 0.5,
-      topPadding + chartHeight * 0.42 + 48
-    );
+
+    if (showText) {
+      ctx.globalAlpha = Math.max(0.04, effectiveOpacity * 0.7);
+      ctx.fillStyle = '#ffffff';
+      const fontSize = Math.max(32, Math.min(110, Math.round(effectiveLogoSize * 0.45)));
+      ctx.font = `900 ${fontSize}px "Plus Jakarta Sans", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(
+        accountType === 'REAL' ? 'LIVE' : 'DEMO',
+        chartWidth * 0.5,
+        topPadding + chartHeight * 0.42 + (showLogo ? effectiveLogoSize * 0.35 : 0)
+      );
+    }
     ctx.restore();
 
     // 2. Subtle Grid Lines
@@ -567,7 +580,52 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
       ctx.stroke();
     }
 
-    // 5. Draw Candlesticks / Area / Line using selected CandleColorScheme
+    // 4.5. Render Master 100+ Live Technical Indicators (Only Lines)
+    if (activeIndicatorIds && activeIndicatorIds.length > 0) {
+      activeIndicatorIds.forEach((id) => {
+        const def = ALL_INDICATORS.find((ind) => ind.id === id);
+        if (!def) return;
+        const calculated = def.calculate(displayCandles);
+        if (!calculated || calculated.length === 0) return;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.strokeStyle = def.color;
+        ctx.lineWidth = 1.8;
+        let started = false;
+        let lastVal: number | null = null;
+        let lastX = 0;
+        let lastY = 0;
+
+        for (let i = 0; i < candleSlice.length; i++) {
+          const val = calculated[startIndex + i];
+          if (val !== null && val !== undefined && !isNaN(val)) {
+            const x = getX(i);
+            const y = getY(val);
+            if (!started) {
+              ctx.moveTo(x, y);
+              started = true;
+            } else {
+              ctx.lineTo(x, y);
+            }
+            lastVal = val;
+            lastX = x;
+            lastY = y;
+          }
+        }
+        ctx.stroke();
+
+        // Draw indicator label near edge of chart if visible
+        if (started && lastVal !== null && lastX > 30 && lastX <= chartWidth + 20) {
+          ctx.fillStyle = def.color;
+          ctx.font = 'bold 9px "JetBrains Mono", monospace';
+          ctx.textAlign = 'left';
+          const clampedY = Math.max(topPadding + 14, Math.min(chartHeight + topPadding - 10, lastY));
+          ctx.fillText(def.shortName, Math.min(chartWidth - 55, lastX + 4), clampedY);
+        }
+        ctx.restore();
+      });
+    }
     const activePalette = CANDLE_COLOR_SCHEMES[candleColorScheme] || CANDLE_COLOR_SCHEMES.classic;
     const bullColor = activePalette.bullish;
     const bearColor = activePalette.bearish;
@@ -980,17 +1038,6 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
         ctx.textAlign = 'center';
         ctx.fillText(`${remSec}s`, tradeEndX, topPadding + 15);
       }
-
-      // Left-side badge on the strike line
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.roundRect(8, tradeY - 10, 96, 20, 4);
-      ctx.fill();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 10px "JetBrains Mono", monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(`${isUp ? '▲' : '▼'} $${trade.amount} (${remSec}s)`, 56, tradeY + 4);
 
       // QUOTEX STYLE: When user pans backwards into past candles, future active trades ALWAYS stay visible!
       // Shows sticky forward trade arrow badge at right edge with glowing pulse
@@ -1849,7 +1896,7 @@ export const ChartCanvas: React.FC<ChartCanvasProps> = ({
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
       }}
-      className={`relative w-full h-full select-none overflow-hidden touch-none ${className || ''}`}
+      className={`relative w-full h-full select-none overflow-hidden touch-none bg-[#0a0d14] transition-[background-image] duration-300 ${className || ''}`}
     >
       <canvas
         ref={canvasRef}

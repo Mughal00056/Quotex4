@@ -40,8 +40,12 @@ export const ChartSettingsModal: React.FC<ChartSettingsModalProps> = ({
     setMarketBehaviorMode,
     logoImageUrl,
     setLogoImageUrl,
-    backgroundImageUrl,
-    setBackgroundImageUrl
+    watermarkSize,
+    setWatermarkSize,
+    watermarkOpacity,
+    setWatermarkOpacity,
+    watermarkType,
+    setWatermarkType
   } = useTrading();
 
   if (!isOpen) return null;
@@ -264,20 +268,101 @@ export const ChartSettingsModal: React.FC<ChartSettingsModalProps> = ({
             </div>
           </div>
 
-          {/* Custom Branding & Images (Logo URL & Background URL as requested) */}
-          <div className="bg-[#151d2a] border border-[#24334a] rounded-xl p-3.5 space-y-3">
+          {/* Watermark Customization & Size Adjustment (No custom background clutter) */}
+          <div className="bg-[#151d2a] border border-[#24334a] rounded-xl p-3.5 space-y-3.5">
             <div className="flex items-center justify-between">
               <span className="font-bold text-white text-xs flex items-center gap-1.5">
                 <ImageIcon className="w-4 h-4 text-cyan-400" />
-                <span>Custom Logo & Background URL</span>
+                <span>Chart Watermark & Branding</span>
               </span>
-              <span className="text-[10px] text-cyan-400 font-mono font-bold">Image URL</span>
+              <span className="text-[10px] bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded font-mono font-bold">
+                {watermarkSize}px • {Math.round(watermarkOpacity * 100)}%
+              </span>
             </div>
 
-            {/* 1. Logo Image URL */}
+            {/* 1. Watermark Size Adjustment Slider */}
+            <div>
+              <div className="flex justify-between text-[11px] font-bold text-slate-300 mb-1">
+                <span>Watermark Size (Adjustment):</span>
+                <span className="text-cyan-400 font-mono font-bold">{watermarkSize}px</span>
+              </div>
+              <input
+                type="range"
+                min="50"
+                max="350"
+                step="10"
+                value={watermarkSize}
+                onChange={(e) => setWatermarkSize(parseInt(e.target.value, 10))}
+                className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-[#0d121c] rounded-lg"
+              />
+
+              {/* Quick Preset Sizes */}
+              <div className="mt-2 flex items-center gap-1.5">
+                {[
+                  { label: 'Compact', size: 70 },
+                  { label: 'Medium', size: 130 },
+                  { label: 'Standard', size: 160 },
+                  { label: 'Large', size: 240 },
+                  { label: 'Hero', size: 320 }
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    onClick={() => setWatermarkSize(preset.size)}
+                    className={`flex-1 text-[10px] py-1 rounded-md border font-bold transition-all cursor-pointer ${
+                      watermarkSize === preset.size
+                        ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-black'
+                        : 'bg-[#0d121c] border-[#222e40] text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 2. Watermark Opacity Slider */}
+            <div>
+              <div className="flex justify-between text-[11px] font-bold text-slate-300 mb-1">
+                <span>Watermark Visibility (Opacity):</span>
+                <span className="text-cyan-400 font-mono font-bold">{Math.round(watermarkOpacity * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.03"
+                max="0.5"
+                step="0.01"
+                value={watermarkOpacity}
+                onChange={(e) => setWatermarkOpacity(parseFloat(e.target.value))}
+                className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-[#0d121c] rounded-lg"
+              />
+            </div>
+
+            {/* 3. Watermark Elements Toggle */}
             <div>
               <label className="text-[11px] font-bold text-slate-300 block mb-1">
-                Logo Image URL:
+                Watermark Elements:
+              </label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {(['both', 'logo', 'text'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setWatermarkType(mode)}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer ${
+                      watermarkType === mode
+                        ? 'bg-cyan-500 text-slate-950 font-black'
+                        : 'bg-[#0d121c] border border-[#222e40] text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {mode === 'both' ? 'Logo + Text' : mode === 'logo' ? 'Logo Only' : 'Text Only'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 4. Logo Image URL */}
+            <div>
+              <label className="text-[11px] font-bold text-slate-300 block mb-1">
+                Custom Watermark Logo URL:
               </label>
               <div className="flex gap-1.5">
                 <input
@@ -291,98 +376,12 @@ export const ChartSettingsModal: React.FC<ChartSettingsModalProps> = ({
                   <button
                     onClick={() => setLogoImageUrl('')}
                     className="px-2 py-1 rounded bg-[#202b3d] hover:bg-rose-900/50 text-slate-300 hover:text-rose-200 text-xs font-bold transition-colors cursor-pointer"
-                    title="Clear logo URL"
+                    title="Reset to default logo"
                   >
-                    Clear
+                    Default
                   </button>
                 )}
               </div>
-              {logoImageUrl && (
-                <div className="mt-1.5 flex items-center gap-2 bg-[#0d121c] p-1.5 rounded-lg border border-[#222e42]">
-                  <img
-                    src={logoImageUrl}
-                    alt="Logo Preview"
-                    className="w-7 h-7 object-contain rounded bg-[#162030]"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
-                  />
-                  <span className="text-[10px] text-slate-400 truncate">Logo active across app</span>
-                </div>
-              )}
-            </div>
-
-            {/* 2. Background Image URL */}
-            <div>
-              <label className="text-[11px] font-bold text-slate-300 block mb-1">
-                Chart Background Image URL:
-              </label>
-              <div className="flex gap-1.5">
-                <input
-                  type="url"
-                  placeholder="Paste direct wallpaper/background image URL..."
-                  value={backgroundImageUrl}
-                  onChange={(e) => setBackgroundImageUrl(e.target.value)}
-                  className="flex-1 bg-[#0d121c] border border-[#25334a] rounded-lg px-2.5 py-1.5 text-white font-mono text-xs outline-none focus:border-cyan-400"
-                />
-                {backgroundImageUrl && (
-                  <button
-                    onClick={() => setBackgroundImageUrl('')}
-                    className="px-2 py-1 rounded bg-[#202b3d] hover:bg-rose-900/50 text-slate-300 hover:text-rose-200 text-xs font-bold transition-colors cursor-pointer"
-                    title="Clear background URL"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-
-              {/* Quick Preset Wallpapers */}
-              <div className="mt-2 flex flex-wrap gap-1">
-                <button
-                  onClick={() => setBackgroundImageUrl('')}
-                  className={`text-[10px] px-2 py-1 rounded-md border font-bold transition-colors cursor-pointer ${
-                    !backgroundImageUrl
-                      ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300'
-                      : 'bg-[#0d121c] border-[#222e40] text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Dark Clean
-                </button>
-                <button
-                  onClick={() =>
-                    setBackgroundImageUrl(
-                      'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&auto=format&fit=crop&q=80'
-                    )
-                  }
-                  className="text-[10px] px-2 py-1 rounded-md bg-[#0d121c] border border-[#222e40] text-slate-400 hover:text-white hover:border-cyan-400 font-bold transition-colors cursor-pointer"
-                >
-                  Trading Grid
-                </button>
-                <button
-                  onClick={() =>
-                    setBackgroundImageUrl(
-                      'https://images.unsplash.com/photo-1642543492481-44e81e3914a7?w=1200&auto=format&fit=crop&q=80'
-                    )
-                  }
-                  className="text-[10px] px-2 py-1 rounded-md bg-[#0d121c] border border-[#222e40] text-slate-400 hover:text-white hover:border-cyan-400 font-bold transition-colors cursor-pointer"
-                >
-                  Neon Cyber
-                </button>
-              </div>
-
-              {backgroundImageUrl && (
-                <div className="mt-1.5 flex items-center gap-2 bg-[#0d121c] p-1.5 rounded-lg border border-[#222e42]">
-                  <img
-                    src={backgroundImageUrl}
-                    alt="Background Preview"
-                    className="w-12 h-7 object-cover rounded bg-[#162030]"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
-                  />
-                  <span className="text-[10px] text-slate-400 truncate">Background applied to chart</span>
-                </div>
-              )}
             </div>
           </div>
 
